@@ -1,0 +1,98 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Trace",
+  "description": "Schema for OmniAgent execution trace",
+  "type": "object",
+  "required": ["id", "agent_id", "adapter_id", "status", "steps", "created_at"],
+  "properties": {
+    "id": {
+      "type": "string",
+      "format": "uuid"
+    },
+    "agent_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "adapter_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "status": {
+      "type": "string",
+      "enum": ["running", "success", "failure", "timeout"]
+    },
+    "steps": {
+      "type": "array",
+      "items": {
+        "$ref": "#/definitions/TraceStep"
+      }
+    },
+    "total_duration_ms": {
+      "type": ["integer", "null"],
+      "minimum": 0
+    },
+    "total_tokens": {
+      "type": ["integer", "null"],
+      "minimum": 0
+    },
+    "total_cost_usd": {
+      "type": ["number", "null"],
+      "minimum": 0
+    },
+    "metadata": {
+      "type": "object"
+    },
+    "source_trace_id": {
+      "type": ["string", "null"],
+      "format": "uuid"
+    },
+    "created_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "updated_at": {
+      "type": ["string", "null"],
+      "format": "date-time"
+    }
+  },
+  "definitions": {
+    "TraceStep": {
+      "type": "object",
+      "required": ["step_seq", "step_type", "content", "timestamp"],
+      "properties": {
+        "step_seq": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "step_type": {
+          "type": "string",
+          "enum": ["thought", "action", "observation"]
+        },
+        "content": {
+          "type": "string"
+        },
+        "model_id": {
+          "type": ["string", "null"]
+        },
+        "tool_name": {
+          "type": ["string", "null"]
+        },
+        "tool_input": {
+          "type": ["object", "null"]
+        },
+        "latency_ms": {
+          "type": ["integer", "null"],
+          "minimum": 0
+        },
+        "tokens_used": {
+          "type": ["integer", "null"],
+          "minimum": 0
+        },
+        "timestamp": {
+          "type": "string",
+          "format": "date-time"
+        }
+      }
+    }
+  }
+}

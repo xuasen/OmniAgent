@@ -1,0 +1,81 @@
+version: "3.0"
+
+server:
+  host: "${OMNIAGENT_HOST:-0.0.0.0}"
+  port: ${OMNIAGENT_PORT:-8000}
+  workers: ${OMNIAGENT_WORKERS:-4}
+  log_level: "${LOG_LEVEL:-info}"
+
+database:
+  url: "postgresql+asyncpg://${DB_USER:-omniagent}:${DB_PASSWORD:-omniagent_dev}@${DB_HOST:-localhost}:${DB_PORT:-5432}/${DB_NAME:-omniagent}"
+  pool_size: ${DB_POOL_SIZE:-20}
+  pool_max_overflow: ${DB_POOL_MAX_OVERFLOW:-10}
+
+execution:
+  trace_collector:
+    buffer_size: 1000
+    flush_interval_seconds: 5
+    max_trace_size_mb: 10
+  trace_store:
+    retention_days: ${TRACE_RETENTION_DAYS:-90}
+    max_query_limit: 500
+  adapters:
+    - id: "openclaw-main"
+      type: "openclaw"
+      mode: "proxy"
+      config:
+        target_url: "${OPENCLAW_URL:-http://localhost:9000}"
+        intercept_port: 9001
+
+control:
+  orchestrator:
+    default_node_timeout_seconds: 60
+    max_parallel_nodes: 10
+    checkpoint_enabled: true
+  hitl:
+    default_timeout_minutes: 30
+    default_timeout_action: "reject"
+  observability:
+    audit_log_enabled: true
+    audit_retry_max: 3
+    audit_retry_backoff_base_seconds: 2
+    metrics_export_interval_seconds: 60
+  policy_engine:
+    config_path: "${POLICY_CONFIG_PATH:-config/policies/}"
+    hot_reload_enabled: true
+
+intelligence:
+  strategy_engine:
+    evaluation_interval_seconds: 300
+    default_objective_priority: 1
+  decision_graph:
+    max_fallback_depth: 3
+  replay_engine:
+    sandbox_enabled: true
+    max_concurrent_replays: 5
+    batch_max_size: 100
+  experiment_engine:
+    min_sample_size: 100
+    max_concurrent_experiments: 10
+    safety_check_interval_seconds: 60
+  learning_loop:
+    analysis_interval_hours: 24
+    auto_apply_threshold: 0.15
+    mode: "manual"
+  conflict_resolver:
+    default_arbitration: "priority"
+    high_risk_escalation: true
+    config_path: "${CONFLICT_RULES_PATH:-config/conflicts.yaml}"
+  finops:
+    cost_check_interval_seconds: 30
+    failover_timeout_seconds: 5
+    model_routes_path: "${MODEL_ROUTES_PATH:-config/model_routes.yaml}"
+    routing_rules:
+      - name: "premium_users"
+        conditions:
+          user_tier: "premium"
+        target_cost_tier: "premium"
+      - name: "default"
+        conditions: {}
+        target_cost_tier: "standard"
+        max_cost_usd: 5.0

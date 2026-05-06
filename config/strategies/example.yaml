@@ -1,0 +1,30 @@
+name: "cost-optimized-execution"
+version: "1.0"
+
+objectives:
+  - metric: "ROI"
+    direction: "maximize"
+    priority: 2
+    weight: 1.0
+  - metric: "cost"
+    direction: "minimize"
+    priority: 1
+    weight: 0.8
+
+constraints:
+  - metric: "cost"
+    operator: "<"
+    value: 5000
+    hard: true
+  - metric: "latency_ms"
+    operator: "<"
+    value: 30000
+    hard: false
+  - metric: "risk"
+    operator: "<="
+    value: 0.3
+    hard: true
+
+config:
+  evaluation_mode: "historical"
+  lookback_window_hours: 72

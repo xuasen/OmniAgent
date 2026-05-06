@@ -1,0 +1,54 @@
+name: "example-workflow"
+version: "1.0"
+description: "Example workflow demonstrating DAG orchestration"
+
+graph:
+  nodes:
+    - id: "start"
+      node_type: "task"
+      action: "initialize"
+      timeout_seconds: 30
+
+    - id: "analyze"
+      node_type: "task"
+      action: "analyze_request"
+      adapter_id: "openclaw-main"
+      timeout_seconds: 60
+
+    - id: "approve"
+      node_type: "hitl"
+      timeout_seconds: 1800
+      config:
+        escalation_levels:
+          - role: "reviewer"
+            timeout_minutes: 15
+
+    - id: "execute"
+      node_type: "task"
+      action: "execute_plan"
+      adapter_id: "openclaw-main"
+      timeout_seconds: 120
+      rollback_handler: "rollback_execution"
+
+    - id: "end"
+      node_type: "task"
+      action: "finalize"
+      timeout_seconds: 30
+
+  edges:
+    - from_node: "start"
+      to_node: "analyze"
+    - from_node: "analyze"
+      to_node: "approve"
+    - from_node: "approve"
+      to_node: "execute"
+    - from_node: "execute"
+      to_node: "end"
+
+  start_node: "start"
+  end_nodes:
+    - "end"
+
+config:
+  max_retries: 3
+  notification_channel: "slack"

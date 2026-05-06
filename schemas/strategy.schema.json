@@ -1,0 +1,91 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "StrategyDefinition",
+  "description": "Schema for OmniAgent strategy definition",
+  "type": "object",
+  "required": ["name", "version", "objectives"],
+  "properties": {
+    "id": {
+      "type": "string",
+      "format": "uuid"
+    },
+    "name": {
+      "type": "string",
+      "minLength": 1
+    },
+    "version": {
+      "type": "string",
+      "minLength": 1
+    },
+    "objectives": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "$ref": "#/definitions/Objective"
+      }
+    },
+    "constraints": {
+      "type": "array",
+      "items": {
+        "$ref": "#/definitions/Constraint"
+      }
+    },
+    "decision_graph_id": {
+      "type": ["string", "null"],
+      "format": "uuid"
+    },
+    "config": {
+      "type": "object"
+    }
+  },
+  "definitions": {
+    "Objective": {
+      "type": "object",
+      "required": ["metric", "direction"],
+      "properties": {
+        "metric": {
+          "type": "string",
+          "minLength": 1
+        },
+        "direction": {
+          "type": "string",
+          "enum": ["maximize", "minimize"]
+        },
+        "priority": {
+          "type": "integer",
+          "minimum": 1,
+          "default": 1
+        },
+        "weight": {
+          "type": "number",
+          "minimum": 0,
+          "default": 1.0
+        }
+      }
+    },
+    "Constraint": {
+      "type": "object",
+      "required": ["metric", "operator", "value"],
+      "properties": {
+        "metric": {
+          "type": "string",
+          "minLength": 1
+        },
+        "operator": {
+          "type": "string",
+          "enum": ["<", ">", "<=", ">=", "=="]
+        },
+        "value": {
+          "oneOf": [
+            {"type": "number"},
+            {"type": "string"}
+          ]
+        },
+        "hard": {
+          "type": "boolean",
+          "default": true
+        }
+      }
+    }
+  }
+}

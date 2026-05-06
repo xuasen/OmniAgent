@@ -1,0 +1,22 @@
+policies:
+  - name: "global_token_quota"
+    policy_type: "token_quota"
+    identity: null
+    rule:
+      max_tokens: 1000000
+      period: "daily"
+
+  - name: "default_tool_access"
+    policy_type: "tool_access"
+    identity: null
+    rule:
+      blocked_tools:
+        - "dangerous_tool"
+      allowed_tools: []
+
+  - name: "admin_acl"
+    policy_type: "acl"
+    identity: "admin"
+    rule:
+      allowed_actions:
+        - "*"
