@@ -1,4 +1,4 @@
-"""AI FinOps — model routing with circuit breaker, sliding window budget, predictive cost (Req 17)."""
+"""AI FinOps — model routing with circuit breaker, real-time metering, and over-budget control (Req 17)."""
 
 import logging
 import time
@@ -9,7 +9,7 @@ from omniagent.common.base_service import BaseService
 from omniagent.common.events import Event, EventBus
 from omniagent.exceptions import OmniAgentError
 from omniagent.intelligence.algorithms.circuit_breaker import CircuitBreaker, CircuitState
-from omniagent.intelligence.models.finops import CostSummary, CostTier, ModelRoute, RoutingRule
+from omniagent.intelligence.models.finops import BudgetAction, CostSummary, CostTier, ModelRoute, RoutingRule
 from omniagent.settings import FinOpsSettings
 
 logger = logging.getLogger(__name__)
@@ -88,33 +88,67 @@ class FinOpsService(BaseService):
             (t, c) for t, c in self._sliding_window[model_id] if t > cutoff
         ]
 
-    async def check_and_downgrade(self, execution_id: str, cost_limit: float) -> ModelRoute | None:
+    async def check_budget(
+        self, execution_id: str, cost_limit: float, action: BudgetAction = BudgetAction.DOWNGRADE
+    ) -> dict:
+        """
+        Check if cumulative cost exceeds budget. Returns action result.
+        Called BEFORE forwarding — based on real recorded costs so far.
+        """
         current_cost = self._cumulative_cost.get(execution_id, 0)
         if current_cost < cost_limit:
-            return None
+            return {"over_budget": False, "current_cost": current_cost, "limit": cost_limit}
 
-        economy_routes = self._get_healthy_routes(CostTier.ECONOMY)
-        if not economy_routes:
-            return None
-
-        downgraded = economy_routes[0]
-        await self._event_bus.publish(Event(
-            event_type="finops.downgrade",
-            payload={
-                "execution_id": execution_id,
-                "new_model": downgraded.model_id,
+        if action == BudgetAction.REJECT:
+            return {
+                "over_budget": True,
+                "action": "reject",
                 "current_cost": current_cost,
-                "cost_limit": cost_limit,
-            },
-            source="finops",
-        ))
-        return downgraded
+                "limit": cost_limit,
+            }
+        elif action == BudgetAction.DOWNGRADE:
+            economy_routes = self._get_healthy_routes(CostTier.ECONOMY)
+            downgraded = economy_routes[0] if economy_routes else None
+            if downgraded:
+                await self._event_bus.publish(Event(
+                    event_type="finops.downgrade",
+                    payload={
+                        "execution_id": execution_id,
+                        "new_model": downgraded.model_id,
+                        "current_cost": current_cost,
+                        "cost_limit": cost_limit,
+                    },
+                    source="finops",
+                ))
+            return {
+                "over_budget": True,
+                "action": "downgrade",
+                "downgraded_to": downgraded.model_id if downgraded else None,
+                "current_cost": current_cost,
+                "limit": cost_limit,
+            }
+        else:
+            await self._event_bus.publish(Event(
+                event_type="finops.budget_alert",
+                payload={"execution_id": execution_id, "current_cost": current_cost, "limit": cost_limit},
+                source="finops",
+            ))
+            return {
+                "over_budget": True,
+                "action": "alert",
+                "current_cost": current_cost,
+                "limit": cost_limit,
+            }
 
-    def predict_cost(self, model_id: str, estimated_tokens: int) -> float:
-        route = next((r for r in self._routes if r.model_id == model_id), None)
-        if route is None:
-            return 0.0
-        return route.cost_per_1k_tokens * estimated_tokens / 1000
+    async def check_and_downgrade(self, execution_id: str, cost_limit: float) -> ModelRoute | None:
+        """Convenience wrapper: check budget and downgrade if over."""
+        result = await self.check_budget(execution_id, cost_limit, BudgetAction.DOWNGRADE)
+        if not result["over_budget"]:
+            return None
+        model_id = result.get("downgraded_to")
+        if model_id:
+            return next((r for r in self._routes if r.model_id == model_id), None)
+        return None
 
     def get_model_health(self) -> dict[str, dict]:
         health = {}

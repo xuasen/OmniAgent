@@ -478,14 +478,14 @@ intelligence:
 
 ### 6. AI FinOps (Circuit Breaker + Budgets)
 
-**What it does**: Controls LLM costs across your entire agent fleet with intelligent model routing, automatic failover, budget enforcement, and predictive cost estimation.
+**What it does**: Controls LLM costs across your entire agent fleet with intelligent model routing, automatic failover, and real-time budget enforcement.
 
 **Key features**:
+- **Real-Time Metering**: Records actual input + output cost after every request, no guessing
+- **Over-Budget Control**: When cumulative cost exceeds limit, configurable actions — reject (429), downgrade (switch to cheaper model), or alert (pass through + notify)
 - **Circuit Breaker per Provider**: Detects repeated failures, stops sending traffic to unhealthy providers, auto-recovers after timeout
 - **Sliding Window Budget**: Track cost per model within a 1-hour rolling window
-- **Automatic Downgrade**: When cumulative cost exceeds limit, routes to cheaper model tier
 - **Tier-Based Routing**: Route premium users to GPT-4, standard users to GPT-3.5, based on configurable rules
-- **Predictive Cost**: Estimate cost before making the call
 - **Multi-Provider Failover**: If primary model's circuit opens, automatically route to next priority
 
 **Configuration** (`config/omniagent.yaml`):
@@ -592,10 +592,17 @@ curl http://localhost:8000/api/v1/finops/costs/summary
 #   "downgrade_count": 23
 # }
 
-# Predict cost before making a call
-curl http://localhost:8000/api/v1/finops/predict \
-  -d '{"model_id": "gpt-4-turbo", "estimated_tokens": 5000}'
-# Response: {"estimated_cost_usd": 0.05}
+```
+
+**How over-budget control works**:
+
+```
+Request comes in → FinOps hook checks cumulative real cost for this execution
+  ├── Under budget → Route to configured tier normally
+  └── Over budget → Apply configured action:
+       ├── "reject"    → Return 429 "Budget exceeded: $12.50 >= $10.00"
+       ├── "downgrade" → Switch to economy model, log event
+       └── "alert"     → Pass through, publish finops.budget_alert event
 ```
 
 **How automatic downgrade works**:

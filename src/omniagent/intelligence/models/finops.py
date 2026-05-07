@@ -31,6 +31,12 @@ class RoutingRule(OmniBaseModel):
     max_cost_usd: float | None = None
 
 
+class BudgetAction(str, Enum):
+    REJECT = "reject"
+    DOWNGRADE = "downgrade"
+    ALERT = "alert"
+
+
 class CostSummary(OmniBaseModel):
     total_cost_usd: float = 0.0
     by_model: dict[str, float] = Field(default_factory=dict)
